@@ -115,13 +115,55 @@ def generate(state: AgentState) -> AgentState:
     response = rag_chain.invoke({'question': query, 'context': context})  # 질문과 문맥을 사용하여 응답을 생성합니다.
     return {'answer': response}  # 생성된 응답을 포함한 state를 반환합니다.
 
+def check_finance_related(state: AgentState) -> Literal["finance", "non_finance"]:
+    """
+    사용자의 query가 금융 관련인지 판별하여 'finance' 또는 'non_finance' 문자열을 반환.
+    retrieval 이전 단계에서 호출하므로 context는 사용하지 않음.
+    """
+    query = state["query"]
+
+    system_msg = (
+        "You are a strict binary classifier. "
+        "Return exactly one token: finance or non_finance."
+        "Finance includes: banking, loans, deposits, interest rates, cards, investments, "
+        "stocks, bonds, funds, FX, crypto (as financial asset), insurance, taxes on financial assets, "
+        "financial regulations/compliance, personal finance, corporate finance."
+        "Non-finance includes: weather, travel tips (non-cost), general tech, cooking, sports scores, etc."
+    )
+    user_msg = f"Query: {query}\nAnswer with only: finance or non_finance"
+
+    resp = llm.invoke([("system", system_msg), ("user", user_msg)])
+    label = (resp.content or "").strip().lower()
+
+    if label.startswith("finance"):
+        return "finance"
+    else:
+        # 종료 이유를 state에 기록
+        state["end_reason"] = "해당 질문은 금융 관련이 아니어서 처리하지 않습니다."
+        return "non_finance"
+
+
+def notify_non_finance(state: AgentState) -> AgentState:
+    reason = state.get("answer", "해당 질문은 금융 관련이 아니어서 처리하지 않습니다.")
+    return {"answer": reason}
+
 
 graph_builder = StateGraph(AgentState)
 graph_builder.add_node('retrieve', retrieve)
 graph_builder.add_node('generate', generate)
 graph_builder.add_node('web_search', web_search)
+graph_builder.add_node('check_doc_relevance', check_doc_relevance)
+graph_builder.add_node('check_finance_related', check_finance_related)
+graph_builder.add_node("notify_non_finance", notify_non_finance)
 
-graph_builder.add_edge(START, 'retrieve')
+graph_builder.add_conditional_edges(
+    START,
+    check_finance_related,
+    {
+        "finance": "retrieve",       # 금융이면 벡터스토어 검색
+        "non_finance": "notify_non_finance"  # 비금융이면 즉시 종료
+    }
+)
 graph_builder.add_conditional_edges(
     'retrieve',
     check_doc_relevance,
@@ -133,8 +175,21 @@ graph_builder.add_conditional_edges(
 # graph_builder.add_edge('rewrite', 'web_search')
 graph_builder.add_edge('web_search', 'generate')
 graph_builder.add_edge('generate', END)
+graph_builder.add_edge('notify_non_finance', END)
 
 graph = graph_builder.compile()
+
+from pathlib import Path
+
+# Mermaid 기반 PNG 이미지 바이트 생성
+png_bytes = graph.get_graph().draw_mermaid_png()
+
+# # 파일로 저장
+# output_path = Path("graph_structure.png")
+# with open(output_path, "wb") as f:
+#     f.write(png_bytes)
+
+# print(f"그래프 구조 PNG 저장 완료: {output_path}")
 
 
 query = "현재 프로야구 순위를 알려줘"
