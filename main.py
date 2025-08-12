@@ -139,7 +139,7 @@ def check_finance_related(state: AgentState) -> Literal["finance", "non_finance"
         return "finance"
     else:
         # 종료 이유를 state에 기록
-        state["end_reason"] = "해당 질문은 금융 관련이 아니어서 처리하지 않습니다."
+        state["answer"] = "해당 질문은 금융 관련이 아니어서 처리하지 않습니다."
         return "non_finance"
 
 
