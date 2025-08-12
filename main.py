@@ -13,6 +13,8 @@ from langchain_openai import OpenAIEmbeddings
 from typing_extensions import List, TypedDict
 from langchain_core.documents import Document
 from langchain import hub
+from langchain_community.tools import TavilySearchResults
+from typing import Literal
 
 load_dotenv()
 
@@ -50,6 +52,51 @@ def retrieve(state: AgentState) -> AgentState:
     return {'context': docs}  # 검색된 문서를 포함한 state를 반환합니다.
 
 
+tavily_search_tool = TavilySearchResults(
+    max_results=3,
+    search_depth="advanced",
+    include_answer=True,
+    include_raw_content=True,
+    include_images=True,
+)
+
+def web_search(state: AgentState) -> AgentState:
+    """
+    주어진 state를 기반으로 웹 검색을 수행합니다.
+
+    Args:
+        state (AgentState): 사용자의 질문을 포함한 에이전트의 현재 state.
+
+    Returns:
+        AgentState: 웹 검색 결과가 추가된 state를 반환합니다.
+    """
+    query = state['query']
+    results = tavily_search_tool.invoke(query)
+
+    return {'context': results}
+
+
+doc_relevance_prompt = hub.pull("langchain-ai/rag-document-relevance")
+def check_doc_relevance(state: AgentState) -> Literal['relevant', 'irrelvant']:
+    """
+    주어진 state를 기반으로 문서의 관련성을 판단합니다.
+
+    Args:
+        state (AgentState): 사용자의 질문과 문맥을 포함한 에이전트의 현재 state.
+
+    Returns:
+        Literal['relevant', 'irrelevant']: 문서가 관련성이 높으면 'relevant', 그렇지 않으면 'irrelevant'를 반환합니다.
+    """
+    query = state['query']
+    context = state['context']
+
+    doc_relevance_chain = doc_relevance_prompt | llm
+    response = doc_relevance_chain.invoke({'question': query, 'documents': context})
+
+    if response['Score'] == 1:
+        return 'relevant'
+    
+    return 'irrelvant'
 
 
 def generate(state: AgentState) -> AgentState:
@@ -72,16 +119,25 @@ def generate(state: AgentState) -> AgentState:
 graph_builder = StateGraph(AgentState)
 graph_builder.add_node('retrieve', retrieve)
 graph_builder.add_node('generate', generate)
+graph_builder.add_node('web_search', web_search)
 
 graph_builder.add_edge(START, 'retrieve')
-graph_builder.add_edge('retrieve', 'generate')
+graph_builder.add_conditional_edges(
+    'retrieve',
+    check_doc_relevance,
+    {
+        'relevant': 'generate',
+        'irrelvant': 'web_search'
+    }
+)
+# graph_builder.add_edge('rewrite', 'web_search')
+graph_builder.add_edge('web_search', 'generate')
 graph_builder.add_edge('generate', END)
-
 
 graph = graph_builder.compile()
 
 
-query = "우리은행 대출할 때 유의해야 할 점들을 알려줘"
+query = "현재 프로야구 순위를 알려줘"
 initial_state = {'query': query}
 result = graph.invoke(initial_state)
-print("hello world")
+print(result['answer'])  # 생성된 응답을 출력합니다.
