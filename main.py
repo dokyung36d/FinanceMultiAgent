@@ -16,6 +16,8 @@ from langchain import hub
 from langchain_community.tools import TavilySearchResults
 from typing import Literal
 
+from loan_tools import equal_principal_schedule, equal_payment_schedule, bullet_repayment_schedule
+
 load_dotenv()
 
 
@@ -26,6 +28,8 @@ class AgentState(TypedDict):
 
 prompt = hub.pull("rlm/rag-prompt")
 llm = ChatOpenAI(model='gpt-4o')
+tools = [equal_principal_schedule, equal_payment_schedule, bullet_repayment_schedule]
+llm_with_tools = llm.bind_tools(tools)
 embeddings = OpenAIEmbeddings(model='text-embedding-3-large')
 
 vector_store = Chroma(
@@ -111,7 +115,7 @@ def generate(state: AgentState) -> AgentState:
     """
     context = state['context']  # state에서 검색된 문서를 추출합니다.
     query = state['query']  # state에서 사용자의 질문을 추출합니다.
-    rag_chain = prompt | llm  # RAG 프롬프트와 LLM을 연결하여 체인을 만듭니다.
+    rag_chain = prompt | llm_with_tools   # RAG 프롬프트와 LLM을 연결하여 체인을 만듭니다.
     response = rag_chain.invoke({'question': query, 'context': context})  # 질문과 문맥을 사용하여 응답을 생성합니다.
     return {'answer': response}  # 생성된 응답을 포함한 state를 반환합니다.
 
@@ -192,7 +196,7 @@ png_bytes = graph.get_graph().draw_mermaid_png()
 # print(f"그래프 구조 PNG 저장 완료: {output_path}")
 
 
-query = "현재 프로야구 순위를 알려줘"
+query = "원금 1천만원, 연 6%, 24개월 동안 원금균등으로 상환할 시 첫 달에 내는 금액이 얼마지"
 initial_state = {'query': query}
 result = graph.invoke(initial_state)
 print(result['answer'])  # 생성된 응답을 출력합니다.
