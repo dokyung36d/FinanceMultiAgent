@@ -1,13 +1,9 @@
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
-from typing import Annotated
 from typing_extensions import TypedDict
-
-from langgraph.graph.message import add_messages
 from langchain_core.messages import AnyMessage
 from langgraph.graph import StateGraph
 from langgraph.graph import START, END
-from langchain_core.messages import HumanMessage
 from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 from typing_extensions import List, TypedDict
@@ -15,9 +11,7 @@ from langchain_core.documents import Document
 from langchain import hub
 from langchain_community.tools import TavilySearchResults
 from typing import Literal
-from langgraph.graph import MessagesState
 from langgraph.graph import END
-from langgraph.prebuilt import ToolNode
 from langchain_core.messages import ToolMessage
 
 from loan_tools import equal_principal_schedule, equal_payment_schedule, bullet_repayment_schedule
