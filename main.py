@@ -107,7 +107,7 @@ def agent(state:  AgentState) -> AgentState:
     messages = state['query']
     
     # LLM과 도구를 사용하여 메시지를 처리하고 응답을 생성합니다.
-    response = llm_with_tools.invoke(messages)
+    response = llm.invoke(messages)
     
     # 응답 메시지를 새로운 상태로 반환합니다.
     return {'messages': [response]}
@@ -161,7 +161,7 @@ def generate(state: AgentState) -> AgentState:
     Returns:
         AgentState: 생성된 응답이 추가된 state를 반환합니다.
     """
-    context = state['context']  # state에서 검색된 문서를 추출합니다.
+    context = state['context'] + state["messages"]  # state에서 검색된 문서를 추출합니다.
     query = state['query']  # state에서 사용자의 질문을 추출합니다.
     rag_chain = prompt | llm   # RAG 프롬프트와 LLM을 연결하여 체인을 만듭니다.
     response = rag_chain.invoke({'question': query, 'context': context})  # 질문과 문맥을 사용하여 응답을 생성합니다.
