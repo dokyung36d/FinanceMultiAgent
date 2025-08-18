@@ -13,6 +13,7 @@ from langchain_community.tools import TavilySearchResults
 from typing import Literal
 from langgraph.graph import END
 from langchain_core.messages import ToolMessage
+from typing import Union
 
 from loan_tools import equal_principal_schedule, equal_payment_schedule, bullet_repayment_schedule
 
@@ -220,8 +221,16 @@ def should_continue(state: AgentState) -> Literal['tools', "retrieve"]:
     
     # 마지막 AI 메시지가 도구 호출을 포함하고 있는지 확인합니다.
     if last_ai_message.tool_calls:
-        # 도구 호출이 있으면 'tools'를 반환합니다.
-        return 'tools'
+        print("🔍 Tool Calls Detected:")
+        for call in last_ai_message.tool_calls:
+            print(f"- Tool Name: {call['name']}")
+            print(f"- Arguments: {call['args']}")
+
+        feedback = input("👍 이 tool 호출이 적절한가요? (y/n): ")
+        if feedback.lower() == "y":
+            return "tools"
+        else:
+            return "agent"
     
     # 도구 호출이 없으면 retrieve로 넘어가 관련 문서들을 참조합니다.
     return "retrieve"
@@ -248,7 +257,7 @@ graph_builder.add_conditional_edges(
 graph_builder.add_conditional_edges(
     'agent',
     should_continue,
-    ['tools', "retrieve"]  # 도구 호출이 있으면 'tools'로, 없으면 'retrieve'로 이동
+    ['tools', "agent", "retrieve"]  # 도구 호출이 있으면 'tools'로, 없으면 'retrieve'로 이동
 )
 graph_builder.add_edge('tools', 'retrieve')
 
