@@ -107,7 +107,7 @@ def agent(state:  AgentState) -> AgentState:
     messages = state['query']
     
     # LLM과 도구를 사용하여 메시지를 처리하고 응답을 생성합니다.
-    response = llm.invoke(messages)
+    response = llm_with_tools.invoke(messages)
     
     # 응답 메시지를 새로운 상태로 반환합니다.
     return {'messages': [response]}
@@ -280,7 +280,7 @@ with open(output_path, "wb") as f:
 print(f"그래프 구조 PNG 저장 완료: {output_path}")
 
 
-query = "원금 1천만원, 연 6%, 24개월 동안 원금균등으로 상환할 시 첫 달에 내는 금액이 얼마지"
+query = "원금 1천만원, 연 6%, 24개월 동안 원금균등으로 상환할 시 내는 금액이 얼마지"
 initial_state = {'query': query}
 result = graph.invoke(initial_state)
 print(result['answer'])  # 생성된 응답을 출력합니다.
